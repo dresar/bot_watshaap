@@ -1,0 +1,228 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'Settings'; %>
+<% path = '/admin/settings'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Google Sheets Integration</h5>
+        </div>
+        <div class="card-body">
+          <form action="/admin/settings/sheets" method="POST">
+            <div class="mb-3">
+              <label for="sheets-api-key" class="form-label">Google Sheets API Key</label>
+              <input type="text" class="form-control" id="sheets-api-key" name="apiKey" value="<%= sheetsCredentials ? sheetsCredentials.apiKey : '' %>" required>
+              <div class="form-text">Enter your Google Sheets API key</div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="sheets-id" class="form-label">Google Sheets ID</label>
+              <input type="text" class="form-control" id="sheets-id" name="sheetId" value="<%= sheetsCredentials ? sheetsCredentials.sheetId : '' %>" required>
+              <div class="form-text">Enter the ID of your Google Sheet (found in the URL)</div>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+              <button type="button" class="btn btn-outline-primary" onclick="testSheetsConnection()">
+                <i class="fas fa-vial"></i> Test Connection
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Settings
+              </button>
+            </div>
+          </form>
+          
+          <div id="sheets-test-result" class="mt-3" style="display: none;"></div>
+          
+          <div class="alert alert-info mt-4">
+            <h6><i class="fas fa-info-circle"></i> How to set up Google Sheets:</h6>
+            <ol class="mb-0">
+              <li>Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+              <li>Create a new project or select an existing one</li>
+              <li>Enable the Google Sheets API for your project</li>
+              <li>Create an API key and restrict it to the Google Sheets API</li>
+              <li>Create a Google Sheet and copy its ID from the URL</li>
+              <li>Enter the API key and Sheet ID above</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Gemini AI Integration</h5>
+        </div>
+        <div class="card-body">
+          <form action="/admin/settings/ai" method="POST">
+            <div class="mb-3">
+              <label for="gemini-api-key" class="form-label">Gemini API Key</label>
+              <input type="text" class="form-control" id="gemini-api-key" name="apiKey" value="<%= process.env.GEMINI_API_KEY || '' %>" required>
+              <div class="form-text">Enter your Gemini API key</div>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+              <button type="button" class="btn btn-outline-primary" onclick="testAIConnection()">
+                <i class="fas fa-vial"></i> Test Connection
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Settings
+              </button>
+            </div>
+          </form>
+          
+          <div id="ai-test-result" class="mt-3" style="display: none;"></div>
+          
+          <div class="alert alert-info mt-4">
+            <h6><i class="fas fa-info-circle"></i> How to set up Gemini AI:</h6>
+            <ol class="mb-0">
+              <li>Go to the <a href="https://ai.google.dev/" target="_blank">Google AI Studio</a></li>
+              <li>Sign in with your Google account</li>
+              <li>Get an API key for Gemini</li>
+              <li>Enter the API key above</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Admin Settings</h5>
+        </div>
+        <div class="card-body">
+          <form action="/admin/settings/admin" method="POST">
+            <div class="mb-3">
+              <label for="admin-username" class="form-label">Admin Username</label>
+              <input type="text" class="form-control" id="admin-username" name="username" value="<%= process.env.ADMIN_USERNAME || 'admin' %>" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="admin-password" class="form-label">Admin Password</label>
+              <input type="password" class="form-control" id="admin-password" name="password" placeholder="Enter new password">
+              <div class="form-text">Leave blank to keep current password</div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Update Admin Credentials
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Test Google Sheets connection
+  function testSheetsConnection() {
+    const apiKey = document.getElementById('sheets-api-key').value;
+    const sheetId = document.getElementById('sheets-id').value;
+    
+    if (!apiKey || !sheetId) {
+      alert('Please enter both API key and Sheet ID');
+      return;
+    }
+    
+    // Show loading indicator
+    const resultDiv = document.getElementById('sheets-test-result');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+      <div class="alert alert-info">
+        <i class="fas fa-spinner fa-spin"></i> Testing connection to Google Sheets...
+      </div>
+    `;
+    
+    // Test connection
+    $.ajax({
+      url: '/admin/settings/sheets/test',
+      method: 'POST',
+      data: { apiKey, sheetId },
+      success: function(response) {
+        if (response.success) {
+          resultDiv.innerHTML = `
+            <div class="alert alert-success">
+              <i class="fas fa-check-circle"></i> Connection successful!
+              <p class="mb-0 mt-2">Found ${response.sheets.length} sheets: ${response.sheets.join(', ')}</p>
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-times-circle"></i> Connection failed: ${response.error}
+            </div>
+          `;
+        }
+      },
+      error: function(xhr) {
+        let errorMessage = 'Unknown error';
+        try {
+          errorMessage = JSON.parse(xhr.responseText).error || errorMessage;
+        } catch (e) {}
+        
+        resultDiv.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-times-circle"></i> Connection failed: ${errorMessage}
+          </div>
+        `;
+      }
+    });
+  }
+  
+  // Test Gemini AI connection
+  function testAIConnection() {
+    const apiKey = document.getElementById('gemini-api-key').value;
+    
+    if (!apiKey) {
+      alert('Please enter the Gemini API key');
+      return;
+    }
+    
+    // Show loading indicator
+    const resultDiv = document.getElementById('ai-test-result');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+      <div class="alert alert-info">
+        <i class="fas fa-spinner fa-spin"></i> Testing connection to Gemini AI...
+      </div>
+    `;
+    
+    // Test connection
+    $.ajax({
+      url: '/admin/settings/ai/test',
+      method: 'POST',
+      data: { apiKey },
+      success: function(response) {
+        if (response.success) {
+          resultDiv.innerHTML = `
+            <div class="alert alert-success">
+              <i class="fas fa-check-circle"></i> Connection successful!
+              <p class="mb-0 mt-2">Response: ${response.response}</p>
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-times-circle"></i> Connection failed: ${response.error}
+            </div>
+          `;
+        }
+      },
+      error: function(xhr) {
+        let errorMessage = 'Unknown error';
+        try {
+          errorMessage = JSON.parse(xhr.responseText).error || errorMessage;
+        } catch (e) {}
+        
+        resultDiv.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-times-circle"></i> Connection failed: ${errorMessage}
+          </div>
+        `;
+      }
+    });
+  }
+</script>

@@ -1,0 +1,313 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'WhatsApp Chats'; %>
+<% path = '/whatsapp/chats'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Chats</h5>
+          <button class="btn btn-sm btn-primary" id="refresh-chats">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush" id="chat-list">
+            <div class="text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading chats...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0" id="selected-chat-name">Select a chat</h5>
+        </div>
+        <div class="card-body">
+          <div id="chat-messages" class="mb-3">
+            <div class="text-center py-5">
+              <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+              <p>Select a chat from the list to view messages</p>
+            </div>
+          </div>
+          
+          <div id="message-form" style="display: none;">
+            <form id="send-message-form" class="d-flex">
+              <input type="hidden" id="recipient-number" name="number">
+              <input type="text" class="form-control me-2" id="message-text" name="message" placeholder="Type a message..." required>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    // Load chats on page load
+    loadChats();
+    
+    // Refresh chats when button is clicked
+    $('#refresh-chats').click(function() {
+      loadChats();
+    });
+    
+    // Send message form submission
+    $('#send-message-form').submit(function(e) {
+      e.preventDefault();
+      
+      const number = $('#recipient-number').val();
+      const message = $('#message-text').val();
+      
+      if (!number || !message) return;
+      
+      // Disable form while sending
+      $('#message-text').prop('disabled', true);
+      $('button[type="submit"]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+      
+      // Send message via API
+      $.ajax({
+        url: '/whatsapp/send',
+        method: 'POST',
+        data: { number, message },
+        success: function(response) {
+          if (response.success) {
+            // Clear input and re-enable form
+            $('#message-text').val('').prop('disabled', false).focus();
+            $('button[type="submit"]').prop('disabled', false).html('<i class="fas fa-paper-plane"></i>');
+            
+            // Add sent message to chat
+            const timestamp = new Date().toLocaleTimeString();
+            $('#chat-messages').append(`
+              <div class="message outgoing">
+                <div class="message-content">
+                  <div class="message-text">${message}</div>
+                  <div class="message-time">${timestamp} <i class="fas fa-check text-success"></i></div>
+                </div>
+              </div>
+            `);
+            
+            // Scroll to bottom
+            scrollToBottom();
+          } else {
+            alert('Failed to send message: ' + response.error);
+            $('button[type="submit"]').prop('disabled', false).html('<i class="fas fa-paper-plane"></i>');
+            $('#message-text').prop('disabled', false);
+          }
+        },
+        error: function() {
+          alert('Failed to send message. Please try again.');
+          $('button[type="submit"]').prop('disabled', false).html('<i class="fas fa-paper-plane"></i>');
+          $('#message-text').prop('disabled', false);
+        }
+      });
+    });
+  });
+  
+  // Load chats from API
+  function loadChats() {
+    $('#chat-list').html(`
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading chats...</p>
+      </div>
+    `);
+    
+    $.ajax({
+      url: '/whatsapp/chats',
+      method: 'GET',
+      success: function(response) {
+        if (response.success && response.chats && response.chats.length > 0) {
+          let chatListHTML = '';
+          
+          response.chats.forEach(chat => {
+            const name = chat.name || chat.number;
+            const lastMessage = chat.lastMessage ? chat.lastMessage.substring(0, 30) + (chat.lastMessage.length > 30 ? '...' : '') : 'No messages';
+            const unreadCount = chat.unreadCount || 0;
+            
+            chatListHTML += `
+              <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start" 
+                 onclick="loadChat('${chat.id}', '${name}', '${chat.number}')">
+                <div class="ms-2 me-auto">
+                  <div class="fw-bold">${name}</div>
+                  <small class="text-muted">${lastMessage}</small>
+                </div>
+                ${unreadCount > 0 ? `<span class="badge bg-primary rounded-pill">${unreadCount}</span>` : ''}
+              </a>
+            `;
+          });
+          
+          $('#chat-list').html(chatListHTML);
+        } else {
+          $('#chat-list').html(`
+            <div class="text-center py-5">
+              <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+              <p>No chats found</p>
+              <small class="text-muted">Send a message to start a chat</small>
+            </div>
+          `);
+        }
+      },
+      error: function() {
+        $('#chat-list').html(`
+          <div class="text-center py-5">
+            <i class="fas fa-exclamation-circle fa-3x text-danger mb-3"></i>
+            <p>Failed to load chats</p>
+            <button class="btn btn-sm btn-primary mt-2" onclick="loadChats()">
+              <i class="fas fa-sync-alt"></i> Try Again
+            </button>
+          </div>
+        `);
+      }
+    });
+  }
+  
+  // Load chat messages
+  function loadChat(chatId, name, number) {
+    // Update selected chat name
+    $('#selected-chat-name').text(name);
+    $('#recipient-number').val(number);
+    
+    // Show loading indicator
+    $('#chat-messages').html(`
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading messages...</p>
+      </div>
+    `);
+    
+    // Show message form
+    $('#message-form').show();
+    
+    // Simulate loading chat messages (replace with actual API call)
+    setTimeout(function() {
+      // This is a simulation - replace with actual API call to get messages
+      const messages = generateSampleMessages();
+      
+      if (messages.length > 0) {
+        let messagesHTML = '';
+        
+        messages.forEach(msg => {
+          const messageClass = msg.fromMe ? 'outgoing' : 'incoming';
+          const statusIcon = msg.fromMe ? '<i class="fas fa-check text-success"></i>' : '';
+          
+          messagesHTML += `
+            <div class="message ${messageClass}">
+              <div class="message-content">
+                <div class="message-text">${msg.text}</div>
+                <div class="message-time">${msg.time} ${statusIcon}</div>
+              </div>
+            </div>
+          `;
+        });
+        
+        $('#chat-messages').html(messagesHTML);
+      } else {
+        $('#chat-messages').html(`
+          <div class="text-center py-5">
+            <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+            <p>No messages in this chat</p>
+            <small class="text-muted">Send a message to start the conversation</small>
+          </div>
+        `);
+      }
+      
+      // Scroll to bottom of messages
+      scrollToBottom();
+    }, 1000);
+  }
+  
+  // Scroll to bottom of chat messages
+  function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  
+  // Generate sample messages for demo (remove in production)
+  function generateSampleMessages() {
+    // This is just for demo purposes - replace with actual messages from API
+    return [
+      { fromMe: false, text: 'Hello there!', time: '10:30 AM' },
+      { fromMe: true, text: 'Hi! How can I help you today?', time: '10:31 AM' },
+      { fromMe: false, text: 'I have a question about your services.', time: '10:32 AM' },
+      { fromMe: true, text: 'Sure, I\'d be happy to help. What would you like to know?', time: '10:33 AM' },
+      { fromMe: false, text: 'Do you offer custom solutions?', time: '10:35 AM' },
+      { fromMe: true, text: 'Yes, we offer fully customized solutions tailored to your specific needs. Would you like to schedule a consultation to discuss your requirements in detail?', time: '10:36 AM' },
+      { fromMe: false, text: 'That sounds great. When are you available?', time: '10:38 AM' },
+      { fromMe: true, text: 'We have openings this week on Wednesday and Friday. Which day works better for you?', time: '10:40 AM' }
+    ];
+  }
+</script>
+
+<style>
+  /* Chat styles */
+  #chat-messages {
+    height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+  }
+  
+  .message {
+    margin-bottom: 15px;
+    display: flex;
+  }
+  
+  .message.incoming {
+    justify-content: flex-start;
+  }
+  
+  .message.outgoing {
+    justify-content: flex-end;
+  }
+  
+  .message-content {
+    max-width: 70%;
+    padding: 10px;
+    border-radius: 10px;
+    position: relative;
+  }
+  
+  .incoming .message-content {
+    background-color: white;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .outgoing .message-content {
+    background-color: #dcf8c6;
+    border: 1px solid #c5e1a5;
+  }
+  
+  .message-text {
+    word-wrap: break-word;
+  }
+  
+  .message-time {
+    font-size: 0.7rem;
+    color: #757575;
+    text-align: right;
+    margin-top: 5px;
+  }
+  
+  /* Chat list styles */
+  #chat-list {
+    max-height: 600px;
+    overflow-y: auto;
+  }
+</style>

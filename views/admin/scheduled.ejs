@@ -1,0 +1,274 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'Scheduled Messages'; %>
+<% path = '/admin/scheduled'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Schedule New Message</h5>
+        </div>
+        <div class="card-body">
+          <form action="/admin/scheduled/add" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label for="to" class="form-label">Phone Number</label>
+              <div class="input-group">
+                <span class="input-group-text">+</span>
+                <input type="text" class="form-control" id="to" name="to" placeholder="62812345678" required>
+              </div>
+              <div class="form-text">Enter the phone number with country code (e.g., 62812345678 for Indonesia)</div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="message-type" class="form-label">Message Type</label>
+              <select class="form-select" id="message-type" name="type" onchange="toggleMediaUpload()">
+                <option value="text" selected>Text Message</option>
+                <option value="image">Image Message</option>
+              </select>
+            </div>
+            
+            <div class="mb-3" id="media-upload" style="display: none;">
+              <label for="media" class="form-label">Image</label>
+              <input type="file" class="form-control" id="media" name="media" accept="image/*">
+            </div>
+            
+            <div class="mb-3">
+              <label for="message" class="form-label">Message</label>
+              <textarea class="form-control" id="message" name="message" rows="4" required></textarea>
+              <div class="form-text" id="caption-text" style="display: none;">This will be used as the image caption</div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="scheduledTime" class="form-label">Scheduled Time</label>
+              <input type="datetime-local" class="form-control" id="scheduledTime" name="scheduledTime" required>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-clock"></i> Schedule Message
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Scheduled Messages</h5>
+          <button class="btn btn-sm btn-outline-primary" onclick="refreshScheduledMessages()">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Recipient</th>
+                  <th>Type</th>
+                  <th>Message</th>
+                  <th>Scheduled Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="scheduled-messages-table">
+                <% if (messages && messages.length > 0) { %>
+                  <% messages.forEach(function(msg) { %>
+                    <tr>
+                      <td><%= msg.to %></td>
+                      <td>
+                        <span class="badge <%= msg.type === 'image' ? 'bg-info' : 'bg-primary' %>">
+                          <%= msg.type %>
+                        </span>
+                      </td>
+                      <td>
+                        <%= msg.message.length > 30 ? msg.message.substring(0, 30) + '...' : msg.message %>
+                        <% if (msg.type === 'image' && msg.mediaPath) { %>
+                          <br>
+                          <small class="text-muted">Has image attachment</small>
+                        <% } %>
+                      </td>
+                      <td>
+                        <%= new Date(msg.scheduledTime).toLocaleString() %>
+                      </td>
+                      <td>
+                        <div class="btn-group">
+                          <button class="btn btn-sm btn-outline-primary" onclick="editScheduledMessage('<%= msg.id %>')">
+                            <i class="fas fa-edit"></i>
+                          </button>
+                          <form action="/admin/scheduled/cancel/<%= msg.id %>" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to cancel this scheduled message?')">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center">No scheduled messages found</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Scheduled Message Modal -->
+<div class="modal fade" id="editScheduledMessageModal" tabindex="-1" aria-labelledby="editScheduledMessageModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editScheduledMessageModalLabel">Edit Scheduled Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-scheduled-form" action="" method="POST" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="edit-to" class="form-label">Phone Number</label>
+            <div class="input-group">
+              <span class="input-group-text">+</span>
+              <input type="text" class="form-control" id="edit-to" name="to" required>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="edit-message-type" class="form-label">Message Type</label>
+            <select class="form-select" id="edit-message-type" name="type" onchange="toggleEditMediaUpload()">
+              <option value="text">Text Message</option>
+              <option value="image">Image Message</option>
+            </select>
+          </div>
+          
+          <div class="mb-3" id="edit-media-upload" style="display: none;">
+            <label for="edit-media" class="form-label">Image (Leave empty to keep current image)</label>
+            <input type="file" class="form-control" id="edit-media" name="media" accept="image/*">
+          </div>
+          
+          <div class="mb-3">
+            <label for="edit-message" class="form-label">Message</label>
+            <textarea class="form-control" id="edit-message" name="message" rows="4" required></textarea>
+            <div class="form-text" id="edit-caption-text" style="display: none;">This will be used as the image caption</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="edit-scheduledTime" class="form-label">Scheduled Time</label>
+            <input type="datetime-local" class="form-control" id="edit-scheduledTime" name="scheduledTime" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitEditForm()">Update Message</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toggle media upload based on message type
+  function toggleMediaUpload() {
+    const messageType = document.getElementById('message-type').value;
+    const mediaUpload = document.getElementById('media-upload');
+    const captionText = document.getElementById('caption-text');
+    
+    if (messageType === 'image') {
+      mediaUpload.style.display = 'block';
+      captionText.style.display = 'block';
+    } else {
+      mediaUpload.style.display = 'none';
+      captionText.style.display = 'none';
+    }
+  }
+  
+  // Toggle edit media upload based on message type
+  function toggleEditMediaUpload() {
+    const messageType = document.getElementById('edit-message-type').value;
+    const mediaUpload = document.getElementById('edit-media-upload');
+    const captionText = document.getElementById('edit-caption-text');
+    
+    if (messageType === 'image') {
+      mediaUpload.style.display = 'block';
+      captionText.style.display = 'block';
+    } else {
+      mediaUpload.style.display = 'none';
+      captionText.style.display = 'none';
+    }
+  }
+  
+  // Edit scheduled message
+  function editScheduledMessage(id) {
+    // Get message data from the server
+    $.ajax({
+      url: `/api/scheduled`,
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + getCookie('auth_token')
+      },
+      success: function(response) {
+        if (response.success && response.messages) {
+          const message = response.messages.find(msg => msg.id === id);
+          
+          if (message) {
+            // Set form action
+            document.getElementById('edit-scheduled-form').action = `/admin/scheduled/update/${id}`;
+            
+            // Fill form fields
+            document.getElementById('edit-to').value = message.to;
+            document.getElementById('edit-message-type').value = message.type || 'text';
+            document.getElementById('edit-message').value = message.message || '';
+            
+            // Format date for datetime-local input
+            const scheduledDate = new Date(message.scheduledTime);
+            const formattedDate = scheduledDate.toISOString().slice(0, 16);
+            document.getElementById('edit-scheduledTime').value = formattedDate;
+            
+            // Show/hide media upload based on message type
+            toggleEditMediaUpload();
+            
+            // Show modal
+            const editModal = new bootstrap.Modal(document.getElementById('editScheduledMessageModal'));
+            editModal.show();
+          } else {
+            alert('Message not found');
+          }
+        } else {
+          alert('Failed to load message data');
+        }
+      },
+      error: function() {
+        alert('Error loading message data');
+      }
+    });
+  }
+  
+  // Submit edit form
+  function submitEditForm() {
+    document.getElementById('edit-scheduled-form').submit();
+  }
+  
+  // Refresh scheduled messages
+  function refreshScheduledMessages() {
+    location.reload();
+  }
+  
+  // Helper function to get cookie value
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    toggleMediaUpload();
+  });
+</script>

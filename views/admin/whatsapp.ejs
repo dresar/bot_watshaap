@@ -1,0 +1,222 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'WhatsApp Connection'; %>
+<% path = '/admin/whatsapp'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Connection Status</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-4">
+            <div class="me-3">
+              <% if (status.ready) { %>
+                <i class="fas fa-check-circle text-success fa-3x"></i>
+              <% } else if (status.status === 'qr_received') { %>
+                <i class="fas fa-qrcode text-warning fa-3x"></i>
+              <% } else { %>
+                <i class="fas fa-times-circle text-danger fa-3x"></i>
+              <% } %>
+            </div>
+            <div>
+              <h4>
+                <% if (status.ready) { %>
+                  Connected
+                <% } else if (status.status === 'qr_received') { %>
+                  QR Code Ready
+                <% } else if (status.status === 'authenticated') { %>
+                  Authenticated
+                <% } else if (status.status === 'auth_failure') { %>
+                  Authentication Failed
+                <% } else { %>
+                  Disconnected
+                <% } %>
+              </h4>
+              <p class="text-muted mb-0">
+                <% if (status.ready) { %>
+                  Your WhatsApp bot is connected and ready to use.
+                <% } else if (status.status === 'qr_received') { %>
+                  Scan the QR code to connect your WhatsApp account.
+                <% } else if (status.status === 'authenticated') { %>
+                  Authenticated, initializing...
+                <% } else if (status.status === 'auth_failure') { %>
+                  Authentication failed. Please try again.
+                <% } else { %>
+                  Your WhatsApp bot is not connected.
+                <% } %>
+              </p>
+            </div>
+          </div>
+          
+          <div class="d-grid gap-2">
+            <% if (status.ready) { %>
+              <form action="/admin/whatsapp/reset" method="POST">
+                <button type="submit" class="btn btn-danger">
+                  <i class="fas fa-power-off"></i> Disconnect
+                </button>
+              </form>
+            <% } else { %>
+              <button id="refresh-btn" class="btn btn-primary">
+                <i class="fas fa-sync-alt"></i> Refresh Status
+              </button>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Connection Information</h5>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <th scope="row">Status</th>
+                <td>
+                  <span id="status-badge" class="badge <%= status.ready ? 'bg-success' : (status.status === 'qr_received' ? 'bg-warning' : 'bg-danger') %>">
+                    <%= status.status %>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Ready</th>
+                <td>
+                  <span id="ready-badge" class="badge <%= status.ready ? 'bg-success' : 'bg-danger' %>">
+                    <%= status.ready ? 'Yes' : 'No' %>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">QR Code</th>
+                <td>
+                  <span id="qr-badge" class="badge <%= status.hasQR ? 'bg-success' : 'bg-danger' %>">
+                    <%= status.hasQR ? 'Available' : 'Not Available' %>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Last Updated</th>
+                <td id="last-updated">
+                  <%= new Date().toLocaleString() %>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">QR Code</h5>
+        </div>
+        <div class="card-body text-center">
+          <div id="qr-container">
+            <% if (qrCode) { %>
+              <img src="<%= qrCode %>" alt="WhatsApp QR Code" class="img-fluid">
+              <p class="mt-3">Scan this QR code with your WhatsApp app to connect your account.</p>
+            <% } else if (status.ready) { %>
+              <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> Your WhatsApp account is connected.
+              </div>
+              <p>No need to scan a QR code.</p>
+            <% } else { %>
+              <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> QR code not available.
+              </div>
+              <p>Please wait for the QR code to be generated or refresh the page.</p>
+              <div class="d-grid gap-2">
+                <button id="refresh-qr-btn" class="btn btn-primary">
+                  <i class="fas fa-sync-alt"></i> Refresh QR Code
+                </button>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Instructions</h5>
+        </div>
+        <div class="card-body">
+          <ol class="mb-0">
+            <li>Open WhatsApp on your phone</li>
+            <li>Tap Menu <i class="fas fa-ellipsis-v"></i> or Settings <i class="fas fa-cog"></i> and select <strong>Linked Devices</strong></li>
+            <li>Tap on <strong>Link a Device</strong></li>
+            <li>Point your phone to this screen to scan the QR code</li>
+            <li>Wait for the connection to be established</li>
+          </ol>
+          <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle"></i> Your WhatsApp account will remain connected until you log out or disconnect.
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Mengapa QR Code Diperlukan?</h5>
+        </div>
+        <div class="card-body">
+          <p>WhatsApp Web API mengharuskan penggunaan QR code untuk autentikasi karena alasan keamanan. Berikut beberapa informasi penting:</p>
+          <ul>
+            <li><strong>Keamanan:</strong> QR code memastikan bahwa hanya perangkat yang Anda otorisasi yang dapat mengakses akun WhatsApp Anda.</li>
+            <li><strong>Batasan API:</strong> WhatsApp Web API tidak menyediakan metode login langsung dengan nomor telepon tanpa QR code.</li>
+            <li><strong>Multi-Device:</strong> Setelah terhubung, Anda dapat menggunakan WhatsApp Web bahkan ketika ponsel Anda tidak terhubung ke internet.</li>
+          </ul>
+          
+          <div class="alert alert-warning mt-3">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Catatan Penting:</strong> Saat ini tidak ada cara resmi untuk menghubungkan WhatsApp Web tanpa memindai QR code. Metode tidak resmi dapat melanggar ketentuan layanan WhatsApp dan berisiko terhadap keamanan akun Anda.
+          </div>
+          
+          <p class="mt-3"><strong>Tips:</strong> Jika kamera ponsel Anda rusak, Anda dapat mencoba menggunakan perangkat lain dengan kamera yang berfungsi untuk memindai QR code, atau gunakan aplikasi WhatsApp di perangkat lain yang sudah terhubung.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    // Refresh status button
+    $('#refresh-btn').click(function() {
+      location.reload();
+    });
+    
+    // Refresh QR code button
+    $('#refresh-qr-btn').click(function() {
+      location.reload();
+    });
+    
+    // Auto-refresh QR code and status if not connected
+    <% if (!status.ready) { %>
+      function refreshQRCode() {
+        $.ajax({
+          url: '/admin/whatsapp/qr',
+          method: 'GET',
+          success: function(response) {
+            if (response.success && response.qrCode) {
+              $('#qr-container').html(`
+                <img src="${response.qrCode}" alt="WhatsApp QR Code" class="img-fluid">
+                <p class="mt-3">Scan this QR code with your WhatsApp app to connect your account.</p>
+              `);
+            }
+            
+            // Update last updated time
+            $('#last-updated').text(new Date().toLocaleString());
+          },
+          error: function() {
+            console.error('Failed to refresh QR code');
+          }
+        });
+      }
+      
+      // Refresh every 30 seconds
+      setInterval(refreshQRCode, 30000);
+    <% } %>
+  });
+</script>

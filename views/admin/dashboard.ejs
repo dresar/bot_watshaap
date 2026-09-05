@@ -1,0 +1,284 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'Dashboard'; %>
+<% path = '/admin/dashboard'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <!-- WhatsApp Status Card -->
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">WhatsApp Status</h5>
+          <a href="/admin/whatsapp" class="btn btn-sm btn-outline-primary">Details</a>
+        </div>
+        <div class="card-body">
+          <% if (status.ready) { %>
+            <div class="alert alert-success">
+              <i class="fas fa-check-circle"></i> Connected
+            </div>
+            <p>Your WhatsApp bot is connected and ready to use.</p>
+          <% } else if (status.hasQR) { %>
+            <div class="alert alert-warning">
+              <i class="fas fa-qrcode"></i> QR Code Available
+            </div>
+            <p>Scan the QR code to connect your WhatsApp account.</p>
+            <a href="/admin/whatsapp" class="btn btn-primary">Scan QR Code</a>
+          <% } else { %>
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-triangle"></i> Disconnected
+            </div>
+            <p>Your WhatsApp bot is not connected.</p>
+            <a href="/admin/whatsapp" class="btn btn-primary">Connect</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Quick Actions</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="/whatsapp/send" class="btn btn-outline-primary">
+              <i class="fas fa-paper-plane"></i> Send Message
+            </a>
+            <a href="/admin/scheduled" class="btn btn-outline-primary">
+              <i class="fas fa-clock"></i> Schedule Message
+            </a>
+            <a href="/whatsapp/chats" class="btn btn-outline-primary">
+              <i class="fas fa-comments"></i> View Chats
+            </a>
+            <a href="/admin/settings" class="btn btn-outline-primary">
+              <i class="fas fa-cog"></i> Settings
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scheduled Messages Card -->
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Scheduled Messages</h5>
+          <a href="/admin/scheduled" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body">
+          <div id="scheduled-messages-loading">
+            <p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading scheduled messages...</p>
+          </div>
+          <div id="scheduled-messages-content" style="display: none;">
+            <ul class="list-group" id="scheduled-messages-list">
+              <!-- Scheduled messages will be loaded here -->
+            </ul>
+            <div id="no-scheduled-messages" style="display: none;">
+              <p class="text-center text-muted mt-3">No scheduled messages found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- System Info Card -->
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">System Information</h5>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <th scope="row">WhatsApp Library</th>
+                <td>whatsapp-web.js</td>
+              </tr>
+              <tr>
+                <th scope="row">AI Integration</th>
+                <td>
+                  <% if (process.env.GEMINI_API_KEY) { %>
+                    <span class="badge bg-success">Configured</span>
+                  <% } else { %>
+                    <span class="badge bg-warning">Not Configured</span>
+                  <% } %>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Google Sheets</th>
+                <td>
+                  <% if (process.env.GOOGLE_SHEETS_API_KEY && process.env.GOOGLE_SHEETS_ID) { %>
+                    <span class="badge bg-success">Configured</span>
+                  <% } else { %>
+                    <span class="badge bg-warning">Not Configured</span>
+                  <% } %>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Server Time</th>
+                <td id="server-time"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity Card -->
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <h5 class="mb-0">Recent Activity</h5>
+        </div>
+        <div class="card-body">
+          <div id="recent-activity-loading">
+            <p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading recent activity...</p>
+          </div>
+          <div id="recent-activity-content" style="display: none;">
+            <ul class="list-group" id="recent-activity-list">
+              <!-- Recent activity will be loaded here -->
+            </ul>
+            <div id="no-recent-activity" style="display: none;">
+              <p class="text-center text-muted mt-3">No recent activity found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    // Update server time
+    function updateServerTime() {
+      const now = new Date();
+      $('#server-time').text(now.toLocaleString());
+    }
+    
+    updateServerTime();
+    setInterval(updateServerTime, 1000);
+    
+    // Load scheduled messages
+    $.ajax({
+      url: '/api/scheduled',
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + getCookie('auth_token')
+      },
+      success: function(response) {
+        $('#scheduled-messages-loading').hide();
+        $('#scheduled-messages-content').show();
+        
+        if (response.success && response.messages && response.messages.length > 0) {
+          const messages = response.messages;
+          const messagesList = $('#scheduled-messages-list');
+          
+          // Sort messages by scheduled time
+          messages.sort((a, b) => new Date(a.scheduledTime) - new Date(b.scheduledTime));
+          
+          // Display up to 5 most recent messages
+          const recentMessages = messages.slice(0, 5);
+          
+          recentMessages.forEach(function(msg) {
+            const scheduledDate = new Date(msg.scheduledTime);
+            const formattedDate = scheduledDate.toLocaleString();
+            
+            const listItem = $('<li class="list-group-item"></li>');
+            listItem.html(`
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>${msg.to}</strong>
+                  <br>
+                  <small class="text-muted">${formattedDate}</small>
+                </div>
+                <span class="badge bg-primary">${msg.type}</span>
+              </div>
+              <p class="mb-0 mt-2">${msg.message.substring(0, 50)}${msg.message.length > 50 ? '...' : ''}</p>
+            `);
+            
+            messagesList.append(listItem);
+          });
+        } else {
+          $('#no-scheduled-messages').show();
+        }
+      },
+      error: function() {
+        $('#scheduled-messages-loading').hide();
+        $('#scheduled-messages-content').show();
+        $('#no-scheduled-messages').show();
+      }
+    });
+    
+    // Simulate recent activity (in a real app, this would be loaded from the server)
+    setTimeout(function() {
+      $('#recent-activity-loading').hide();
+      $('#recent-activity-content').show();
+      
+      const activityList = $('#recent-activity-list');
+      
+      // Add some sample activities
+      const activities = [
+        { type: 'message', text: 'Message sent to +6281234567890', time: '2 minutes ago' },
+        { type: 'connection', text: 'WhatsApp connected successfully', time: '10 minutes ago' },
+        { type: 'schedule', text: 'New message scheduled for tomorrow', time: '30 minutes ago' },
+        { type: 'settings', text: 'Google Sheets API configured', time: '1 hour ago' },
+        { type: 'login', text: 'Admin logged in', time: '2 hours ago' }
+      ];
+      
+      if (activities.length > 0) {
+        activities.forEach(function(activity) {
+          let icon = '';
+          
+          switch (activity.type) {
+            case 'message':
+              icon = '<i class="fas fa-paper-plane text-primary"></i>';
+              break;
+            case 'connection':
+              icon = '<i class="fas fa-plug text-success"></i>';
+              break;
+            case 'schedule':
+              icon = '<i class="fas fa-clock text-warning"></i>';
+              break;
+            case 'settings':
+              icon = '<i class="fas fa-cog text-secondary"></i>';
+              break;
+            case 'login':
+              icon = '<i class="fas fa-sign-in-alt text-info"></i>';
+              break;
+            default:
+              icon = '<i class="fas fa-info-circle"></i>';
+          }
+          
+          const listItem = $('<li class="list-group-item"></li>');
+          listItem.html(`
+            <div class="d-flex">
+              <div class="me-3">
+                ${icon}
+              </div>
+              <div>
+                ${activity.text}
+                <br>
+                <small class="text-muted">${activity.time}</small>
+              </div>
+            </div>
+          `);
+          
+          activityList.append(listItem);
+        });
+      } else {
+        $('#no-recent-activity').show();
+      }
+    }, 1000);
+    
+    // Helper function to get cookie value
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+  });
+</script>

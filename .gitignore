@@ -1,0 +1,28 @@
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# WhatsApp session data
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+
+# Data files
+data/*
+!data/.gitkeep
+!data/scheduled-messages.json
+!data/sheets-credentials.json
+
+# OS specific files
+.DS_Store
+Thumbs.db

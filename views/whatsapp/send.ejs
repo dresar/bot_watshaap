@@ -1,0 +1,233 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'Send Message'; %>
+<% path = '/whatsapp/send'; %>
+<% // Set default value for phoneNumber if not provided %>
+<% phoneNumber = typeof phoneNumber !== 'undefined' ? phoneNumber : ''; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Send Text Message</h5>
+        </div>
+        <div class="card-body">
+          <form action="/whatsapp/send/text" method="POST">
+            <div class="mb-3">
+              <label for="to" class="form-label">Phone Number</label>
+              <div class="input-group">
+                <span class="input-group-text">+</span>
+                <input type="text" class="form-control" id="to" name="to" placeholder="62812345678" value="<%= phoneNumber %>" required>
+              </div>
+              <div class="form-text">Enter the phone number with country code (e.g., 62812345678 for Indonesia)</div>
+            </div>
+            <div class="mb-3">
+              <label for="message" class="form-label">Message</label>
+              <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+            </div>
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Send Message
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Send Image Message</h5>
+        </div>
+        <div class="card-body">
+          <form action="/whatsapp/send/image" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label for="to-image" class="form-label">Phone Number</label>
+              <div class="input-group">
+                <span class="input-group-text">+</span>
+                <input type="text" class="form-control" id="to-image" name="to" placeholder="62812345678" value="<%= phoneNumber %>" required>
+              </div>
+              <div class="form-text">Enter the phone number with country code (e.g., 62812345678 for Indonesia)</div>
+            </div>
+            <div class="mb-3">
+              <label for="image" class="form-label">Image</label>
+              <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+            </div>
+            <div class="mb-3">
+              <label for="caption" class="form-label">Caption (Optional)</label>
+              <textarea class="form-control" id="caption" name="caption" rows="3"></textarea>
+            </div>
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-image"></i> Send Image
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Quick Templates</h5>
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            <button type="button" class="list-group-item list-group-item-action" onclick="useTemplate('greeting')">
+              <strong>Greeting</strong>
+              <p class="mb-0 text-muted">Hello! How can I help you today?</p>
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="useTemplate('thanks')">
+              <strong>Thank You</strong>
+              <p class="mb-0 text-muted">Thank you for your message. We appreciate your feedback!</p>
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="useTemplate('followup')">
+              <strong>Follow Up</strong>
+              <p class="mb-0 text-muted">Just following up on our previous conversation. Do you have any questions?</p>
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="useTemplate('custom')">
+              <strong>Add Custom Template</strong>
+              <p class="mb-0 text-muted">Create and save your own message template</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Template Modal -->
+<div class="modal fade" id="customTemplateModal" tabindex="-1" aria-labelledby="customTemplateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="customTemplateModalLabel">Create Custom Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="template-name" class="form-label">Template Name</label>
+          <input type="text" class="form-control" id="template-name" placeholder="Enter a name for your template">
+        </div>
+        <div class="mb-3">
+          <label for="template-content" class="form-label">Template Content</label>
+          <textarea class="form-control" id="template-content" rows="5" placeholder="Enter your message template"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveCustomTemplate()">Save Template</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Template functions
+  function useTemplate(templateType) {
+    let templateContent = '';
+    
+    switch (templateType) {
+      case 'greeting':
+        templateContent = 'Hello! How can I help you today?';
+        break;
+      case 'thanks':
+        templateContent = 'Thank you for your message. We appreciate your feedback!';
+        break;
+      case 'followup':
+        templateContent = 'Just following up on our previous conversation. Do you have any questions?';
+        break;
+      case 'custom':
+        // Show custom template modal
+        const customTemplateModal = new bootstrap.Modal(document.getElementById('customTemplateModal'));
+        customTemplateModal.show();
+        return;
+      default:
+        // Check if it's a saved custom template
+        const savedTemplates = JSON.parse(localStorage.getItem('messageTemplates') || '{}');
+        if (savedTemplates[templateType]) {
+          templateContent = savedTemplates[templateType];
+        }
+    }
+    
+    // Set the template content to the message textarea
+    document.getElementById('message').value = templateContent;
+  }
+  
+  // Save custom template
+  function saveCustomTemplate() {
+    const templateName = document.getElementById('template-name').value.trim();
+    const templateContent = document.getElementById('template-content').value.trim();
+    
+    if (!templateName || !templateContent) {
+      alert('Please enter both template name and content');
+      return;
+    }
+    
+    // Save to local storage
+    const savedTemplates = JSON.parse(localStorage.getItem('messageTemplates') || '{}');
+    savedTemplates[templateName] = templateContent;
+    localStorage.setItem('messageTemplates', JSON.stringify(savedTemplates));
+    
+    // Close modal
+    const customTemplateModal = bootstrap.Modal.getInstance(document.getElementById('customTemplateModal'));
+    customTemplateModal.hide();
+    
+    // Add to the list
+    addCustomTemplateToList(templateName, templateContent);
+    
+    // Clear form
+    document.getElementById('template-name').value = '';
+    document.getElementById('template-content').value = '';
+    
+    // Show success message
+    alert('Template saved successfully!');
+  }
+  
+  // Add custom template to the list
+  function addCustomTemplateToList(name, content) {
+    const listGroup = document.querySelector('.list-group');
+    const customButton = document.querySelector('.list-group-item:last-child');
+    
+    const newTemplate = document.createElement('button');
+    newTemplate.type = 'button';
+    newTemplate.className = 'list-group-item list-group-item-action';
+    newTemplate.setAttribute('onclick', `useTemplate('${name}')`);
+    newTemplate.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center">
+        <strong>${name}</strong>
+        <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteTemplate('${name}')">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+      <p class="mb-0 text-muted">${content.substring(0, 50)}${content.length > 50 ? '...' : ''}</p>
+    `;
+    
+    listGroup.insertBefore(newTemplate, customButton);
+  }
+  
+  // Delete template
+  function deleteTemplate(name) {
+    if (confirm(`Are you sure you want to delete the template "${name}"?`)) {
+      // Remove from local storage
+      const savedTemplates = JSON.parse(localStorage.getItem('messageTemplates') || '{}');
+      delete savedTemplates[name];
+      localStorage.setItem('messageTemplates', JSON.stringify(savedTemplates));
+      
+      // Remove from the list
+      const templateButton = document.querySelector(`.list-group-item[onclick="useTemplate('${name}')"`);
+      if (templateButton) {
+        templateButton.remove();
+      }
+    }
+  }
+  
+  // Load saved templates on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const savedTemplates = JSON.parse(localStorage.getItem('messageTemplates') || '{}');
+    
+    for (const [name, content] of Object.entries(savedTemplates)) {
+      addCustomTemplateToList(name, content);
+    }
+  });
+</script>

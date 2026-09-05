@@ -1,0 +1,552 @@
+<% /* Set title and path variables for layout */ %>
+<% title = 'WhatsApp Status'; %>
+<% path = '/whatsapp/status'; %>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-12 mb-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Status Updates</h5>
+          <button class="btn btn-sm btn-primary" id="refresh-status">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> This page allows you to view and interact with WhatsApp status updates from your contacts.
+          </div>
+          
+          <div id="status-container" class="row">
+            <div class="col-12 text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading status updates...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Viewer Modal -->
+<div class="modal fade" id="statusViewerModal" tabindex="-1" aria-labelledby="statusViewerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="statusViewerModalLabel">Status Viewer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="status-viewer-container" class="position-relative">
+          <!-- Status content will be loaded here -->
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading status...</p>
+          </div>
+          
+          <!-- Status progress bar -->
+          <div class="status-progress-container">
+            <div class="status-progress-bar" id="status-progress-bar"></div>
+          </div>
+          
+          <!-- Navigation controls -->
+          <button class="status-nav-btn status-prev-btn" id="status-prev-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="status-nav-btn status-next-btn" id="status-next-btn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="status-info d-flex align-items-center me-auto">
+          <div class="status-author-pic me-2">
+            <img src="/img/default-profile.png" alt="Profile" id="status-author-pic">
+          </div>
+          <div class="status-author-info">
+            <div class="status-author-name" id="status-author-name">Contact Name</div>
+            <div class="status-timestamp" id="status-timestamp">Today, 12:00 PM</div>
+          </div>
+        </div>
+        
+        <button type="button" class="btn btn-outline-primary status-reaction-btn" id="status-like-btn">
+          <i class="far fa-heart"></i> Like
+        </button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    // Load status updates on page load
+    loadStatusUpdates();
+    
+    // Refresh status when button is clicked
+    $('#refresh-status').click(function() {
+      loadStatusUpdates();
+    });
+    
+    // Status viewer navigation
+    $('#status-prev-btn').click(function() {
+      navigateStatus('prev');
+    });
+    
+    $('#status-next-btn').click(function() {
+      navigateStatus('next');
+    });
+    
+    // Like status
+    $('#status-like-btn').click(function() {
+      likeCurrentStatus();
+    });
+  });
+  
+  // Load status updates from API
+  function loadStatusUpdates() {
+    $('#status-container').html(`
+      <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading status updates...</p>
+      </div>
+    `);
+    
+    // This is a simulation - replace with actual API call
+    setTimeout(function() {
+      const statusUpdates = generateSampleStatusUpdates();
+      
+      if (statusUpdates.length > 0) {
+        let statusHTML = '';
+        
+        statusUpdates.forEach((status, index) => {
+          statusHTML += `
+            <div class="col-md-3 col-sm-6 mb-4">
+              <div class="status-card" onclick="openStatusViewer(${index})">
+                <div class="status-preview">
+                  ${status.mediaType === 'image' 
+                    ? `<img src="${status.mediaUrl}" alt="Status Preview">` 
+                    : `<div class="text-status-preview">${status.text}</div>`
+                  }
+                </div>
+                <div class="status-info">
+                  <div class="status-author">
+                    <img src="${status.authorPic}" alt="${status.authorName}" class="status-author-avatar">
+                    <span>${status.authorName}</span>
+                  </div>
+                  <div class="status-time">${status.timestamp}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        $('#status-container').html(statusHTML);
+      } else {
+        $('#status-container').html(`
+          <div class="col-12 text-center py-5">
+            <i class="fas fa-photo-video fa-3x text-muted mb-3"></i>
+            <p>No status updates available</p>
+            <small class="text-muted">Your contacts haven't posted any status updates recently</small>
+          </div>
+        `);
+      }
+    }, 1000);
+  }
+  
+  // Current status viewing state
+  let currentStatusData = [];
+  let currentStatusIndex = 0;
+  let currentItemIndex = 0;
+  let statusTimer = null;
+  
+  // Open status viewer modal
+  function openStatusViewer(statusIndex) {
+    // Get status data (replace with actual API call)
+    currentStatusData = generateSampleStatusUpdates();
+    currentStatusIndex = statusIndex;
+    currentItemIndex = 0;
+    
+    // Show modal
+    const statusModal = new bootstrap.Modal(document.getElementById('statusViewerModal'));
+    statusModal.show();
+    
+    // Load first status item
+    loadStatusItem();
+    
+    // Reset and start progress bar
+    resetStatusProgress();
+  }
+  
+  // Load status item into viewer
+  function loadStatusItem() {
+    clearTimeout(statusTimer);
+    
+    const status = currentStatusData[currentStatusIndex];
+    const statusItems = status.items || [status];
+    const currentItem = statusItems[currentItemIndex];
+    
+    // Update author info
+    $('#status-author-name').text(status.authorName);
+    $('#status-author-pic').attr('src', status.authorPic);
+    $('#status-timestamp').text(currentItem.timestamp || status.timestamp);
+    
+    // Update like button state
+    if (currentItem.liked) {
+      $('#status-like-btn').html('<i class="fas fa-heart text-danger"></i> Liked');
+    } else {
+      $('#status-like-btn').html('<i class="far fa-heart"></i> Like');
+    }
+    
+    // Create progress segments
+    let progressHTML = '';
+    for (let i = 0; i < statusItems.length; i++) {
+      const progressClass = i < currentItemIndex ? 'completed' : i === currentItemIndex ? 'active' : '';
+      progressHTML += `<div class="status-progress-segment ${progressClass}" data-index="${i}"></div>`;
+    }
+    $('#status-progress-bar').html(progressHTML);
+    
+    // Load content based on media type
+    let contentHTML = '';
+    if (currentItem.mediaType === 'image') {
+      contentHTML = `<img src="${currentItem.mediaUrl}" alt="Status" class="status-media">`;
+    } else if (currentItem.mediaType === 'video') {
+      contentHTML = `
+        <video src="${currentItem.mediaUrl}" class="status-media" autoplay muted>
+          Your browser does not support the video tag.
+        </video>
+      `;
+    } else {
+      contentHTML = `<div class="text-status">${currentItem.text}</div>`;
+    }
+    
+    $('#status-viewer-container').html(contentHTML);
+    
+    // Start progress for current item
+    startStatusProgress();
+  }
+  
+  // Navigate between status items
+  function navigateStatus(direction) {
+    const status = currentStatusData[currentStatusIndex];
+    const statusItems = status.items || [status];
+    
+    if (direction === 'next') {
+      currentItemIndex++;
+      
+      if (currentItemIndex >= statusItems.length) {
+        // Move to next contact's status
+        currentStatusIndex++;
+        currentItemIndex = 0;
+        
+        if (currentStatusIndex >= currentStatusData.length) {
+          // End of all statuses, close modal
+          $('#statusViewerModal').modal('hide');
+          return;
+        }
+      }
+    } else if (direction === 'prev') {
+      currentItemIndex--;
+      
+      if (currentItemIndex < 0) {
+        // Move to previous contact's status
+        currentStatusIndex--;
+        
+        if (currentStatusIndex < 0) {
+          // Beginning of all statuses
+          currentStatusIndex = 0;
+          currentItemIndex = 0;
+          return;
+        }
+        
+        const prevStatus = currentStatusData[currentStatusIndex];
+        const prevStatusItems = prevStatus.items || [prevStatus];
+        currentItemIndex = prevStatusItems.length - 1;
+      }
+    }
+    
+    loadStatusItem();
+  }
+  
+  // Reset and start status progress
+  function resetStatusProgress() {
+    clearTimeout(statusTimer);
+    $('.status-progress-segment').removeClass('completed active');
+    $('.status-progress-segment[data-index="0"]').addClass('active');
+  }
+  
+  // Start progress for current item
+  function startStatusProgress() {
+    const duration = 5000; // 5 seconds per status
+    
+    // Auto-advance to next status after duration
+    statusTimer = setTimeout(function() {
+      navigateStatus('next');
+    }, duration);
+  }
+  
+  // Like current status
+  function likeCurrentStatus() {
+    const status = currentStatusData[currentStatusIndex];
+    const statusItems = status.items || [status];
+    const currentItem = statusItems[currentItemIndex];
+    
+    // Toggle liked state
+    currentItem.liked = !currentItem.liked;
+    
+    // Update button
+    if (currentItem.liked) {
+      $('#status-like-btn').html('<i class="fas fa-heart text-danger"></i> Liked');
+      
+      // Send like to API (replace with actual API call)
+      console.log('Liked status:', status.authorName, currentItemIndex);
+      // $.post('/whatsapp/status/like', { statusId: currentItem.id });
+    } else {
+      $('#status-like-btn').html('<i class="far fa-heart"></i> Like');
+    }
+  }
+  
+  // Generate sample status updates for demo (remove in production)
+  function generateSampleStatusUpdates() {
+    return [
+      {
+        authorName: 'John Doe',
+        authorPic: '/img/default-profile.png',
+        timestamp: '2 hours ago',
+        mediaType: 'image',
+        mediaUrl: 'https://picsum.photos/500/800?random=1',
+        items: [
+          {
+            mediaType: 'image',
+            mediaUrl: 'https://picsum.photos/500/800?random=1',
+            timestamp: '2 hours ago',
+            liked: false
+          },
+          {
+            mediaType: 'text',
+            text: 'Having a great day! 😊',
+            timestamp: '1 hour ago',
+            liked: false
+          }
+        ]
+      },
+      {
+        authorName: 'Jane Smith',
+        authorPic: '/img/default-profile.png',
+        timestamp: '30 minutes ago',
+        mediaType: 'text',
+        text: 'Just finished an amazing book! Highly recommend it to everyone.',
+        liked: false
+      },
+      {
+        authorName: 'Mike Johnson',
+        authorPic: '/img/default-profile.png',
+        timestamp: '1 hour ago',
+        mediaType: 'image',
+        mediaUrl: 'https://picsum.photos/500/800?random=2',
+        items: [
+          {
+            mediaType: 'image',
+            mediaUrl: 'https://picsum.photos/500/800?random=2',
+            timestamp: '1 hour ago',
+            liked: false
+          },
+          {
+            mediaType: 'image',
+            mediaUrl: 'https://picsum.photos/500/800?random=3',
+            timestamp: '55 minutes ago',
+            liked: false
+          },
+          {
+            mediaType: 'image',
+            mediaUrl: 'https://picsum.photos/500/800?random=4',
+            timestamp: '50 minutes ago',
+            liked: false
+          }
+        ]
+      },
+      {
+        authorName: 'Sarah Williams',
+        authorPic: '/img/default-profile.png',
+        timestamp: '3 hours ago',
+        mediaType: 'image',
+        mediaUrl: 'https://picsum.photos/500/800?random=5',
+        liked: true
+      }
+    ];
+  }
+</script>
+
+<style>
+  /* Status card styles */
+  .status-card {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: transform 0.2s;
+    height: 250px;
+    position: relative;
+  }
+  
+  .status-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .status-preview {
+    height: 200px;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .status-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .text-status-preview {
+    height: 100%;
+    padding: 20px;
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 1.1rem;
+  }
+  
+  .status-info {
+    padding: 10px;
+    background-color: white;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  .status-author {
+    display: flex;
+    align-items: center;
+  }
+  
+  .status-author-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  
+  .status-time {
+    font-size: 0.7rem;
+    color: #757575;
+  }
+  
+  /* Status viewer styles */
+  #status-viewer-container {
+    height: 70vh;
+    background-color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  
+  .status-media {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    margin: 0 auto;
+  }
+  
+  .text-status {
+    max-width: 80%;
+    padding: 30px;
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: white;
+    border-radius: 10px;
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .status-progress-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 10;
+  }
+  
+  .status-progress-bar {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .status-progress-segment {
+    height: 3px;
+    background-color: rgba(255, 255, 255, 0.3);
+    flex-grow: 1;
+    border-radius: 3px;
+  }
+  
+  .status-progress-segment.active {
+    background-color: white;
+    animation: progress-animation 5s linear forwards;
+  }
+  
+  .status-progress-segment.completed {
+    background-color: white;
+  }
+  
+  @keyframes progress-animation {
+    from { width: 0%; }
+    to { width: 100%; }
+  }
+  
+  .status-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+  }
+  
+  .status-prev-btn {
+    left: 10px;
+  }
+  
+  .status-next-btn {
+    right: 10px;
+  }
+  
+  .status-author-pic img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+  
+  .status-author-name {
+    font-weight: bold;
+  }
+  
+  .status-timestamp {
+    font-size: 0.8rem;
+    color: #757575;
+  }
+</style>
